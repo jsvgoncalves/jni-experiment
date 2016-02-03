@@ -1,6 +1,18 @@
 apply plugin: 'com.android.model.application'
 
+def curl_lib_path = file(project(':app').projectDir).absolutePath + "/src/main/jni/prebuilts"
+println "******${curl_lib_path}"
 model {
+    repositories {
+        libs(PrebuiltLibraries) {
+            curl {
+                headers.srcDir "${curl_lib_path}/include"
+                binaries.withType(StaticLibraryBinary) {
+                    staticLibraryFile = file("${curl_lib_path}/${targetPlatform.getName()}/libcurl.a")
+                }
+            }
+        }
+    }
     android {
         compileSdkVersion = 23
         buildToolsVersion = "23.0.2"
@@ -10,58 +22,67 @@ model {
             minSdkVersion.apiLevel = 4
             targetSdkVersion.apiLevel = 23
         }
-    }
+        ndk {
+            moduleName = "jni-experiment"
+            stl = "stlport_static"
+            ldLibs.addAll(["android","log","z"])
+            /*
+             * Other ndk flags configurable here are
+             * cppFlags.add("-fno-rtti")
+             * cppFlags.add("-fno-exceptions")
+             * ldLibs.addAll(["android", "log"])
+             * stl       = "system"
+             */
+        }
+        buildTypes {
+            release {
+                minifyEnabled = false
+                proguardFiles.add(file('proguard-rules.txt'))
+            }
+        }
+        productFlavors {
+            // for detailed abiFilter descriptions, refer to "Supported ABIs" @
+            // https://developer.android.com/ndk/guides/abis.html#sa
+            create("arm") {
+                ndk.abiFilters.add("armeabi")
+            }
+            create("arm7") {
+                ndk.abiFilters.add("armeabi-v7a")
+            }
+            create("arm8") {
+                ndk.abiFilters.add("arm64-v8a")
+            }
+            create("x86") {
+                ndk.abiFilters.add("x86")
+            }
+            create("x86-64") {
+                ndk.abiFilters.add("x86_64")
+            }
+            create("mips") {
+                ndk.abiFilters.add("mips")
+            }
+            create("mips-64") {
+                ndk.abiFilters.add("mips64")
+            }
+            // To include all cpu architectures, leaves abiFilters empty
+            create("all")
+        }
 
-    compileOptions.with {
-        sourceCompatibility=JavaVersion.VERSION_1_7
-        targetCompatibility=JavaVersion.VERSION_1_7
-    }
+        sources {
+            main {
+                java {
+                    source {
+                        srcDir "src"
+                    }
+                }
+                jni {
+                    dependencies {
+                        library "curl" linkage "static"
+                    }
+                }
+            }
+        }
 
-    /*
-     * native build settings
-     */
-    android.ndk {
-        moduleName = "jni-experiment"
-        stl = "stlport_shared"
-        /*
-         * Other ndk flags configurable here are
-         * cppFlags.add("-fno-rtti")
-         * cppFlags.add("-fno-exceptions")
-         * ldLibs.addAll(["android", "log"])
-         * stl       = "system"
-         */
-    }
-    android.buildTypes {
-        release {
-            minifyEnabled = false
-            proguardFiles.add(file('proguard-rules.txt'))
-        }
-    }
-    android.productFlavors {
-        // for detailed abiFilter descriptions, refer to "Supported ABIs" @
-        // https://developer.android.com/ndk/guides/abis.html#sa
-        create("arm") {
-            ndk.abiFilters.add("armeabi")
-        }
-        create("arm7") {
-            ndk.abiFilters.add("armeabi-v7a")
-        }
-        create("arm8") {
-            ndk.abiFilters.add("arm64-v8a")
-        }
-        create("x86") {
-            ndk.abiFilters.add("x86")
-        }
-        create("x86-64") {
-            ndk.abiFilters.add("x86_64")
-        }
-        create("mips") {
-            ndk.abiFilters.add("mips")
-        }
-        create("mips-64") {
-            ndk.abiFilters.add("mips64")
-        }
-        // To include all cpu architectures, leaves abiFilters empty
-        create("all")
+
     }
 }
